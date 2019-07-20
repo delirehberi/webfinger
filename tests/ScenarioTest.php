@@ -2,17 +2,13 @@
 declare(strict_types=1);
 
 /**
- * Created by PhpStorm.
- * User: delirehberi
- * Date: 11/24/18
- * Time: 11:44 PM
+ * Created by PhpStorm
  */
-class ScenarioTest extends \PHPUnit\Framework\TestCase
+class ArrayAdapterTest extends \PHPUnit\Framework\TestCase
 {
-
-    public function testArrayAdapterForAcct()
+    public function exampleUser()
     {
-        $user = (new class implements \DelirehberiWebFinger\ResourceDescriptorInterface
+        return (new class implements \DelirehberiWebFinger\ResourceDescriptorInterface
         {
             public function transform(): \DelirehberiWebFinger\JsonRD
             {
@@ -20,6 +16,11 @@ class ScenarioTest extends \PHPUnit\Framework\TestCase
                 $data
                     ->setSubject("acct:" . $this->getEmail());
                 $data->addAlias('https://www.example.com/~' . $this->getUsername() . "/");
+
+                $link = new \DelirehberiWebFinger\JsonRDLink();
+                $link->setRel('http://openid.net/specs/connect/1.0/issuer')
+                    ->setHref('https://openid.example.com');
+                $data->addLink($link);
 
                 $link = new \DelirehberiWebFinger\JsonRDLink();
                 $link->setRel('http://webfinger.example/rel/profile-page')
@@ -50,7 +51,11 @@ class ScenarioTest extends \PHPUnit\Framework\TestCase
                 return 'bob@example.com';
             }
         });
+    }
 
+    public function exampleUserAdapter()
+    {
+        $user = $this->exampleUser();
         $userAdapter = new \DelirehberiWebFinger\Adapter\ArrayAdapter();
         $userAdapter->add($user);
         $userAdapter->setScheme(\DelirehberiWebFinger\Constants::Account);
@@ -60,7 +65,12 @@ class ScenarioTest extends \PHPUnit\Framework\TestCase
             }
             return false;
         });
+        return $userAdapter;
+    }
 
+    public function testArrayAdapterForAcct()
+    {
+        $userAdapter = $this->exampleUserAdapter();
         $webfinger = new \DelirehberiWebFinger\WebFinger();
         $webfinger->addResource($userAdapter);
 
@@ -69,7 +79,7 @@ class ScenarioTest extends \PHPUnit\Framework\TestCase
         } catch (\Exception $a) {
             echo $a->getMessage();
         }
-        $result = $data->transform()->toJSON();
+        $result = $data->toJSON();
         $this->assertEquals(self::BOB_RESPONSE, $result);
     }
 
@@ -155,9 +165,24 @@ class ScenarioTest extends \PHPUnit\Framework\TestCase
         } catch (\Exception $e) {
             var_dump($e->getMessage());
         }
-        $this->assertEquals(self::CONTENT_RESPONSE, $data->transform()->toJSON());
+        $this->assertEquals(self::CONTENT_RESPONSE, $data->toJSON());
     }
 
-    const BOB_RESPONSE = '{"subject":"acct:bob@example.com","aliases":["https:\/\/www.example.com\/~bob\/"],"links":[{"rel":"http:\/\/webfinger.example\/rel\/profile-page","href":"https:\/\/www.example.com\/~bob\/"},{"rel":"http:\/\/webfinger.example\/rel\/businesscard","href":"https:\/\/www.example.com\/~bob\/bob.vcf"}],"properties":{"http:\/\/example.com\/ns\/role":"employee"}}';
+    public function testArrayAdapterAcctForRel()
+    {
+        $userAdapter = $this->exampleUserAdapter();
+        $webfinger = new \DelirehberiWebFinger\WebFinger();
+        $webfinger->addResource($userAdapter);
+
+        try {
+            $data = $webfinger->response("?resource=acct:bob@example.com&rel=http://openid.net/specs/connect/1.0/issuer");
+        } catch (\Exception $e) {
+            var_dump($e->getMessage());
+        }
+        $this->assertEquals(self::REL_BOB_RESPONSE, $data->toJSON());
+    }
+
+    const REL_BOB_RESPONSE = '{"subject":"acct:bob@example.com","links":[{"rel":"http:\/\/openid.net\/specs\/connect\/1.0\/issuer","href":"https:\/\/openid.example.com"}]}';
+    const BOB_RESPONSE = '{"subject":"acct:bob@example.com","aliases":["https:\/\/www.example.com\/~bob\/"],"links":[{"rel":"http:\/\/openid.net\/specs\/connect\/1.0\/issuer","href":"https:\/\/openid.example.com"},{"rel":"http:\/\/webfinger.example\/rel\/profile-page","href":"https:\/\/www.example.com\/~bob\/"},{"rel":"http:\/\/webfinger.example\/rel\/businesscard","href":"https:\/\/www.example.com\/~bob\/bob.vcf"}],"properties":{"http:\/\/example.com\/ns\/role":"employee"}}';
     const CONTENT_RESPONSE = '{"subject":"http:\/\/blog.example.com\/hello-world","aliases":["https:\/\/www.example.com\/blog\/10"],"links":[{"rel":"copyright","href":"http:\/\/www.example.com\/copyright"},{"rel":"author","href":"http:\/\/blog.example.com\/author\/steve","titles":{"en_US":"Steve`s world","tr_TR":"Steve`in d\u00fcnyas\u0131"},"properties":{"http:\/\/example.com\/role":"editor"}}],"properties":{"http:\/\/blgx.example.net\/ns\/version":"1.3"}}';
 }

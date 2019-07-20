@@ -30,7 +30,7 @@ class WebFinger
      * @return JsonRD|null
      * @throws \Exception
      */
-    public function response(string $query): ?ResourceDescriptorInterface
+    public function response(string $query): ?JsonRD
     {
         $response = null;
         $resolve = $this->resolve($query);
@@ -42,7 +42,14 @@ class WebFinger
                 break;
             }
         }
-        return $response;
+        $transformedResponse = $response->transform();
+
+        if (isset($resolve['rel'])) {
+            //@todo it isn`t seems right. needs better solution.
+            $transformedResponse = $this->filterByRel($transformedResponse, $resolve);
+        }
+
+        return $transformedResponse;
     }
 
     /**
@@ -80,5 +87,25 @@ class WebFinger
         }
 
         return $result;
+    }
+
+    /**
+     * @param JsonRD $response
+     * @param array $resolve
+     * @return JsonRD
+     */
+    private function filterByRel(JsonRD $response, array $resolve)
+    {
+        $filteredResponse = new JsonRD();
+        $filteredResponse
+            ->setSubject($response->getSubject());
+        foreach ($response->getLinks() as $link) {
+            /** @var JsonRDLink $link */
+            if ($link->getRel() == $resolve['rel']) {
+                $filteredResponse->addLink($link);
+            }
+        }
+
+        return $filteredResponse;
     }
 }
