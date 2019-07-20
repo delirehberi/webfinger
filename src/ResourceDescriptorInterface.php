@@ -9,5 +9,8 @@ namespace DelirehberiWebFinger;
  */
 interface ResourceDescriptorInterface
 {
+    /**
+     * @return JsonRD
+     */
     public function transform():JsonRD;
 }

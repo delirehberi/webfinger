@@ -368,6 +368,9 @@ class JsonRDLink
         throw new JsonRDException("The value of the `rel` member MUST contain exactly one URI or registered relation type.");
     }
 
+    /**
+     * @return array
+     */
     public function toArray(): array
     {
         $data = [];

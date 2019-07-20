@@ -6,21 +6,31 @@
 namespace DelirehberiWebFinger\Adapter;
 
 
-use DelirehberiWebFinger\JsonRD;
 use DelirehberiWebFinger\ResourceDescriptorInterface;
 
 class ArrayAdapter extends AbstractAdapter
 {
+    /**
+     * @var array ResourceDescriptorInterface items
+     */
     private $items;
     private $filter;
-    private $modifiers = [];
 
+    /**
+     * @param array $items
+     * @return ArrayAdapter
+     */
     public function set(array $items): self
     {
         $this->items = $items;
         return $this;
     }
 
+    /**
+     * @param ResourceDescriptorInterface $item
+     * @param string|null $key
+     * @return ArrayAdapter
+     */
     public function add(ResourceDescriptorInterface $item, string $key = null): self
     {
         if ($key !== null) {
@@ -31,6 +41,10 @@ class ArrayAdapter extends AbstractAdapter
         return $this;
     }
 
+    /**
+     * @param string $data
+     * @return ResourceDescriptorInterface|null
+     */
     public function getObject($data): ?ResourceDescriptorInterface
     {
         foreach ($this->modifiers as $modifier) {
@@ -50,15 +64,14 @@ class ArrayAdapter extends AbstractAdapter
         return $object;
     }
 
+    /**
+     * @param callable $filter
+     * @return ArrayAdapter
+     */
     public function setFilter(callable $filter): self
     {
         $this->filter = $filter;
         return $this;
     }
 
-    public function addModifier(callable $modifier): self
-    {
-        $this->modifiers[] = $modifier;
-        return $this;
-    }
 }

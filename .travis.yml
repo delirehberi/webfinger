@@ -1,0 +1,11 @@
+language: php
+php:
+  - 7.2
+  - 7.3
+  - 7.4snapshot
+script: phpunit tests/
+
+before_install:
+  - composer self-update
+install:
+  - composer install --prefer-source

@@ -21,5 +21,9 @@ interface AdapterInterface
      * @return AdapterInterface
      */
     public function setScheme(string $scheme):AdapterInterface;
+
+    /**
+     * @return string
+     */
     public function getScheme():string;
 }
