@@ -1,4 +1,4 @@
-# PHP WebFinger implementation
+# PHP WebFinger implementation [![Build Status](https://travis-ci.com/delirehberi/webfinger.svg?branch=master)](https://travis-ci.com/delirehberi/webfinger)
 
 WebFinger [RFC7033](https://tools.ietf.org/html/rfc7033) implementation for PHP. 
 You can use your projects after with basic installation steps.
