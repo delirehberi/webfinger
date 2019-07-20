@@ -1,0 +1,84 @@
+<?php
+/**
+ * Copyright (c) 2019.
+ */
+
+namespace DelirehberiWebFinger;
+
+
+use DelirehberiWebFinger\Adapter\AdapterInterface;
+
+class WebFinger
+{
+    /**
+     * @var array Adapter list
+     */
+    private $resources = [];
+
+    /**
+     * @param AdapterInterface $adapter
+     * @return WebFinger
+     */
+    public function addResource(AdapterInterface $adapter): self
+    {
+        $this->resources[$adapter->getScheme()][] = $adapter;
+        return $this;
+    }
+
+    /**
+     * @param string $query
+     * @return JsonRD|null
+     * @throws \Exception
+     */
+    public function response(string $query): ?ResourceDescriptorInterface
+    {
+        $response = null;
+        $resolve = $this->resolve($query);
+        foreach ($this->resources[$resolve['scheme']] as $adapter) {
+            /** @var  AdapterInterface $adapter */
+            $result = $adapter->getObject($resolve['data']);
+            if ($result instanceof ResourceDescriptorInterface) {
+                $response = $result;
+                break;
+            }
+        }
+        return $response;
+    }
+
+    /**
+     * @param $query
+     * @return array
+     * @throws \Exception
+     */
+    public function resolve($query): array
+    {
+        //fix
+        $query = str_replace('?', '', $query);
+
+        $result = [];
+        $params = explode('&', $query);
+        foreach ($params as $param) {
+            list($key, $value) = explode('=', $param);
+            $result[$key] = $value;
+        }
+        if (!isset($result['resource'])) {
+            throw new \Exception("query component MUST include the
+   \"resource\" parameter exactly once and set to the value of the URI for
+   which information is being sought");
+        }
+        $url = parse_url($result['resource']);
+        $result['scheme'] = $url['scheme'];
+
+        // @todo needs better solution.
+        switch ($url['scheme']) {
+            case 'acct':
+                $result['data'] = $url['path'];
+                break;
+            default:
+                $result['data'] = $result['resource'];
+                break;
+        }
+
+        return $result;
+    }
+}

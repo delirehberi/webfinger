@@ -9,16 +9,9 @@ declare(strict_types=1);
  */
 class ScenarioTest extends \PHPUnit\Framework\TestCase
 {
-    public function testValidWebFingerScenario()
-    {
-        $query = new \Symfony\Component\HttpFoundation\ParameterBag();
-        $query->add([
-            'resource' => 'acct:bob@example.com',
-        ]);
-        $request = new \DelirehberiWebFinger\Request();
-        $request->setMethod('GET');
-        $request->query = $query;
 
+    public function testArrayAdapterForAcct()
+    {
         $user = (new class implements \DelirehberiWebFinger\ResourceDescriptorInterface
         {
             public function transform(): \DelirehberiWebFinger\JsonRD
@@ -57,69 +50,114 @@ class ScenarioTest extends \PHPUnit\Framework\TestCase
                 return 'bob@example.com';
             }
         });
-        $response = new \DelirehberiWebFinger\Response();
-        $response->setData($user);
 
-        $this->assertEquals(self::BOB_RESPONSE, $response->getContent());
-        $this->assertEquals('application/jrd+json', $response->headers->get('Content-Type'));
-        $this->assertEquals('*', $response->headers->get('Access-Control-Allow-Origin'));
+        $userAdapter = new \DelirehberiWebFinger\Adapter\ArrayAdapter();
+        $userAdapter->add($user);
+        $userAdapter->setScheme(\DelirehberiWebFinger\Constants::Account);
+        $userAdapter->setFilter(function ($user, string $query) {
+            if ($user->getEmail() == $query) {
+                return true;
+            }
+            return false;
+        });
+
+        $webfinger = new \DelirehberiWebFinger\WebFinger();
+        $webfinger->addResource($userAdapter);
+
+        try {
+            $data = $webfinger->response("?resource=acct:bob@example.com");
+        } catch (\Exception $a) {
+            echo $a->getMessage();
+        }
+        $result = $data->transform()->toJSON();
+        $this->assertEquals(self::BOB_RESPONSE, $result);
     }
 
-    public function testInvalidWebFingerScenario()
+    public function testArrayAdapterForHttps()
     {
-        $query = new \Symfony\Component\HttpFoundation\ParameterBag();
-        $query->add([
-            'resource' => 'acct:bob@example.com',
-        ]);
-        $request = new \DelirehberiWebFinger\Request();
-        $request->setMethod('GET');
-        $request->query = $query;
-
-        $user = (new class implements \DelirehberiWebFinger\ResourceDescriptorInterface
+        $content = (new class implements \DelirehberiWebFinger\ResourceDescriptorInterface
         {
             public function transform(): \DelirehberiWebFinger\JsonRD
             {
                 $data = new \DelirehberiWebFinger\JsonRD();
                 $data
-                    ->setSubject("acct:" . $this->getEmail());
-                $data->addAlias('https://www.example.com/~' . $this->getUsername() . "/");
-
+                    ->setSubject($this->getFullUrl());
+                $data->addAlias('https://www.example.com/blog/' . $this->getId());
+                $data->addProperty('http://blgx.example.net/ns/version', "1.3");
                 $link = new \DelirehberiWebFinger\JsonRDLink();
-                $link->setRel('http://webfinger.example/rel/profile-page')
-                    ->setHref('https://www.example.com/~' . $this->getUsername() . "/");
+                $link->setRel('copyright')
+                    ->setHref('http://www.example.com/copyright');
                 $data->addLink($link);
 
                 $link = new \DelirehberiWebFinger\JsonRDLink();
-                $link->setRel('http://webfinger.example/rel/businesscard')
-                    ->setHref('https://www.example.com/~' . $this->getUsername() . "/" . $this->getVcardUrl());
+                $link->setRel('author')
+                    ->setHref($this->getAuthorUrl())
+                    ->addTitle('en_US', $this->getAuthorTitle())
+                    ->addTitle('tr_TR', $this->getAuthorTitle('tr_TR'))
+                    ->addProperty('http://example.com/role', 'editor');
                 $data->addLink($link);
 
-                $data->addProperty('http://example.com/ns/role', 'employee');
                 return $data;
             }
 
-            public function getVcardUrl()
+            public function getId()
             {
-                return "bob.vcf";
+                return 10;
             }
 
-            public function getUsername()
+            public function getAuthorTitle($locale = 'en_US')
             {
-                return "bob";
+                $titles = [
+                    'en_US' => "Steve`s world",
+                    'tr_TR' => 'Steve`in dünyası',
+                ];
+                return $titles[$locale];
             }
 
-            public function getEmail()
+            public function getSlug()
             {
-                return 'bob@example.com';
+                return "hello-world";
+            }
+
+            public function getFullUrl()
+            {
+                return "http://blog.example.com/" . $this->getSlug();
+            }
+
+            public function getAuthorUrl()
+            {
+                return "http://blog.example.com/author/steve";
             }
         });
-        $response = new \Symfony\Component\HttpFoundation\JsonResponse();
-        $response->setData($user);
 
-        $this->assertNotEquals(self::BOB_RESPONSE, $response->getContent());
-        $this->assertNotEquals('application/jrd+json', $response->headers->get('Content-Type'));
-        $this->assertNotEquals('*', $response->headers->get('Access-Control-Allow-Origin'));
+        $contentAdapter = new \DelirehberiWebFinger\Adapter\ArrayAdapter();
+        $contentAdapter
+            ->add($content)
+            ->setScheme(\DelirehberiWebFinger\Constants::Content);
+        $contentAdapter->addModifier(function ($query) {
+            $url = parse_url($query);
+            if (!isset($url['path'])) {
+                return null;
+            }
+            $path = trim($url['path'], '/');
+            return $path;
+        });
+        $contentAdapter->setFilter(function ($content, $query) {
+            if ($content->getSlug() == $query) {
+                return true;
+            }
+            return false;
+        });
+        $webfinger = new \DelirehberiWebFinger\WebFinger();
+        $webfinger->addResource($contentAdapter);
+        try {
+            $data = $webfinger->response("?resource=http://blog.example.com/hello-world");
+        } catch (\Exception $e) {
+            var_dump($e->getMessage());
+        }
+        $this->assertEquals(self::CONTENT_RESPONSE, $data->transform()->toJSON());
     }
 
     const BOB_RESPONSE = '{"subject":"acct:bob@example.com","aliases":["https:\/\/www.example.com\/~bob\/"],"links":[{"rel":"http:\/\/webfinger.example\/rel\/profile-page","href":"https:\/\/www.example.com\/~bob\/"},{"rel":"http:\/\/webfinger.example\/rel\/businesscard","href":"https:\/\/www.example.com\/~bob\/bob.vcf"}],"properties":{"http:\/\/example.com\/ns\/role":"employee"}}';
+    const CONTENT_RESPONSE = '{"subject":"http:\/\/blog.example.com\/hello-world","aliases":["https:\/\/www.example.com\/blog\/10"],"links":[{"rel":"copyright","href":"http:\/\/www.example.com\/copyright"},{"rel":"author","href":"http:\/\/blog.example.com\/author\/steve","titles":{"en_US":"Steve`s world","tr_TR":"Steve`in d\u00fcnyas\u0131"},"properties":{"http:\/\/example.com\/role":"editor"}}],"properties":{"http:\/\/blgx.example.net\/ns\/version":"1.3"}}';
 }
