@@ -2,6 +2,7 @@
   "name": "delirehberi/webfinger",
   "description": "Webfinger Implementation",
   "type": "library",
+  "version":"0.0.5",
   "license": "MIT",
   "authors": [
     {
